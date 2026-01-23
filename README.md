@@ -35,8 +35,10 @@ Repository containing the processed data, analysis workflows, and figure code fo
    4. `metabolic rates computation.ipynb`  
    5. `respiratory quotient analysis.ipynb`  
    6. `stpd corrected metabolic rates.ipynb`  
-   7. `compute energy from VCO2 and RQ.ipynb`  
-   8. `nectar volume computation.ipynb`
+   7. `compute energy from VCO2 and RQ.ipynb`
+   8. `volume of nectar required per behaviour.ipynb`
+   9. `nectar volume computation.ipynb`
+   10. `general nectar reference table (Table 2).ipynb`
 
 2. **Run the R scripts** (in `R//`, e.g. in RStudio).  
    These read from `data/for_R/` and produce outputs in `figures/`.
