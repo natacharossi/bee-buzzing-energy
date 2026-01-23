@@ -7,7 +7,7 @@ library(performance)
 library(ggplot2)
 
 # Load the dataset
-data <- read.csv("C:/Users/labadmin/Documents/Uppsala analyses/data/filtered_df_with_colony_and_ITS.csv")
+data <- read.csv("C:/Users/Beth/Documents/Proc Roy Soc Paper/ProcRoySoc/for_R/filtered_df_with_colony_and_ITS.csv")
 
 summary(data)
 data$BeeID <- as.factor(data$BeeID)
@@ -39,26 +39,32 @@ ggplot(data, aes(x = event_type, y = log(mass_specific_mL_g_h))) +
   facet_wrap(~ ColonyID)
 
 # Models
-model <- lmer(mass_specific_mL_g_h ~ event_type + ColonyID + (1 | BeeID), data = data)
-sim_res <- simulateResiduals(model, plot = TRUE)
+model_log <- lmer(log10(mass_specific_mL_g_h) ~ event_type + ColonyID + ( 1|BeeID), data = data)
 
-model_log <- lmer(log(mass_specific_mL_g_h) ~ event_type + ColonyID + (1 | BeeID), data = data)
-simulateResiduals(model_log, plot = TRUE)
-summary(model_log)
-anova(model_log, type = "II")
+#FINAL MODEL
+model_log2 <- lmer(log10(mass_specific_mL_g_h) ~ event_type + ColonyID  + (1+ event_type | BeeID), data = data)
 
-icc(model_log)  # for mass-specific metabolic rate
+#Check if variance slope improves model fit= sig
+anova(model_log, model_log2, refit = FALSE)
+isSingular(model_log2)
 
-emmeans(model_log, pairwise ~ event_type, type = "response")
+simulateResiduals(model_log2, plot = TRUE)
+plotResiduals(model_log2, data$event_type)
+plotResiduals(model_log2, data$ColonyID)
+testDispersion(model_log2)
+testUniformity(model_log2)
 
-aggregate(weight_g ~ ColonyID, data = data, FUN = mean)
+summary(model_log2)
+anova(model_log2, type = "II")
 
+emmeans(model_log2, pairwise ~ event_type, type = "response")
 
-emm <- emmeans(model_log, ~ event_type)
+emm <- emmeans(model_log2, ~ event_type)
 summary(emm)
 contrast(emm, method = "pairwise", adjust = "none")  # No multiple testing correction needed here
 
 emm_df <- as.data.frame(summary(emm, type = "response"))
+emm_df
 
 p_msmr <- ggplot(emm_df, aes(x = event_type, y = response)) +
   geom_point(size = 3) +
@@ -67,48 +73,90 @@ p_msmr <- ggplot(emm_df, aes(x = event_type, y = response)) +
   theme_minimal(base_size = 14)
 p_msmr
 
-# Subset your data for each behaviour
-buzz_data <- subset(data, event_type == "buzz")
-takeoff_data <- subset(data, event_type == "flight")
+#Calculate ICC for model_log2
 
-# Fit models separately
-buzz_model <- lmer(log(mass_specific_mL_g_h) ~ ColonyID + (1 | BeeID), data = buzz_data)
-takeoff_model <- lmer(log(mass_specific_mL_g_h) ~ ColonyID + (1 | BeeID), data = takeoff_data)
+m2 <- model_log2  # your fitted model
 
-# Calculate ICCs
-icc(buzz_model)
-icc(takeoff_model)
+vc <- VarCorr(m2)
+G  <- as.matrix(vc$BeeID)          # random-effect (co)variance for BeeID: intercept/slope(s)
+var_res <- attr(vc, "sc")^2        # residual variance
 
-# Create a unique bee-level dataset
-bee_data <- data[!duplicated(data$BeeID), c("BeeID", "weight_g", "ITS_mm", "ColonyID")]
+Xlev <- model.matrix(~ event_type, data = data)  # fixed-effect design for event_type (same coding used in model)
+Zlev <- Xlev                                     # same columns correspond to random intercept + event_type slopes
 
-aggregate(weight_g ~ ColonyID, data = bee_data, FUN = function(x) c(mean = mean(x), sd = sd(x), n = length(x)))
-aggregate(ITS_mm ~ ColonyID, data = bee_data, FUN = function(x) c(mean = mean(x), sd = sd(x), n = length(x)))
+# unique rows = one per event_type level (under current contrasts)
+Zuniq <- unique(Zlev)
 
-# Fit body mass model and test
-mass_model_bee <- lm(weight_g ~ ColonyID, data = bee_data)
-anova(mass_model_bee)
-simulateResiduals(mass_model_bee, plot = TRUE)
+# between-bee variance for each event_type level:
+var_bee_by_level <- apply(Zuniq, 1, function(z) as.numeric(t(z) %*% G %*% z))
 
-# Load multcomp for compact letter display (optional)
-library(multcomp)
+ICC_by_level <- var_bee_by_level / (var_bee_by_level + var_res)
 
-# Run Tukey HSD
-tukey_results <- TukeyHSD(aov(mass_model_bee))
-print(tukey_results)
+out <- data.frame(
+  event_type = levels(data$event_type),
+  var_bee = var_bee_by_level[seq_along(levels(data$event_type))],
+  var_res = var_res,
+  ICC = ICC_by_level[seq_along(levels(data$event_type))]
+)
 
-# Fit body size model and test
-size_model_bee <- lm(ITS_mm ~ ColonyID, data = bee_data)
-anova(size_model_bee)
-simulateResiduals(size_model_bee, plot = TRUE)
+out
 
-# Run Tukey HSD
-tukey_results_size <- TukeyHSD(aov(size_model_bee))
-print(tukey_results_size)
+#Extract 95% CI
 
-msmr_model_cov2 <- lmer(log(mass_specific_mL_g_h) ~ event_type + ColonyID + weight_g + ITS_mm + (1 | BeeID), data = data)
-anova(msmr_model_cov2, type = "II")
-simulateResiduals(msmr_model_cov2, plot = TRUE)
+set.seed(123)
 
-library(car)
-vif(lm(log(mass_specific_mL_g_h) ~ event_type + ColonyID + weight_g + ITS_mm, data = data))
+boot_icc <- bootMer(
+  model_log2,
+  FUN = function(fit) {
+    vc <- VarCorr(fit)
+    G  <- as.matrix(vc$BeeID)
+    var_res <- attr(vc, "sc")^2
+    
+    # model matrix for event_type
+    X <- model.matrix(~ event_type, data = data)
+    Zuniq <- unique(X)
+    
+    icc <- apply(Zuniq, 1, function(z) {
+      vb <- as.numeric(t(z) %*% G %*% z)
+      vb / (vb + var_res)
+    })
+    
+    names(icc) <- levels(data$event_type)
+    icc
+  },
+  nsim = 1000,
+  type = "parametric"
+)
+
+icc_ci <- t(apply(
+  boot_icc$t,
+  2,
+  quantile,
+  probs = c(0.025, 0.5, 0.975)
+))
+
+icc_df <- data.frame(
+  event_type = rownames(icc_ci),
+  ICC = icc_ci[, "50%"],
+  lower = icc_ci[, "2.5%"],
+  upper = icc_ci[, "97.5%"]
+)
+
+icc_df
+
+#Plot ICC and CI
+
+ggplot(icc_df, aes(x = event_type, y = ICC)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.15) +
+  ylim(0, 1) +
+  labs(
+    x = "Event type",
+    y = "Individual-level repeatability (ICC)",
+    title = "Repeatability of metabolic rate by behavior"
+  ) +
+  theme_classic(base_size = 14)
+
+#Test if ICC sig different between behaviours = n.s. 
+icc_diff <- boot_icc$t[, "buzz"] - boot_icc$t[, "flight"]
+quantile(icc_diff, probs = c(0.025, 0.5, 0.975))
