@@ -51,7 +51,7 @@ Repository containing the processed data, analysis workflows, and figure code fo
 Processed data used by the notebooks and R scripts are provided within this repository under `data/for_notebooks/` and `data/for_R/`.
 
 **Data citation**  
- (2025). *Data and code for: First direct quantification of floral handling costs in bees* [Dataset]. Zenodo. https://doi.org/10.5281/zenodo.16877020
+ Natacha Rossi. (2026). natacharossi/bee-buzzing-energy: Public release 5 (v1.0.6). Zenodo. https://doi.org/10.5281/zenodo.18847660
 
 ---
 
