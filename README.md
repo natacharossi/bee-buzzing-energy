@@ -39,7 +39,7 @@ Repository containing the processed data, analysis workflows, and figure code fo
    8. `mean energy expenditure and equivalent nectar volume per bee, per behaviour, and per flower species.ipynb`
    9. `volume of nectar required per behaviour (Table 1).ipynb`
    10. `nectar volume computation.ipynb`
-   11. `general nectar reference table (Table 2).ipynb`
+   11. `general nectar reference table (Table S1).ipynb`
 
 2. **Run the R scripts** (in `R//`, e.g. in RStudio).  
    These read from `data/for_R/` and produce outputs in `figures/`.
