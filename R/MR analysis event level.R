@@ -253,7 +253,7 @@ ggplot(data,
   
   theme_classic(base_size = 14) +
   labs(x = "log10(Body mass, g)",
-       y = "log10 Metabolic rate (mL/h)") +
+       y = "log10 Metabolic rate (ml/h)") +
   
   # filled circle + triangle
   scale_shape_manual(values = c(21, 24))
@@ -287,7 +287,7 @@ ggplot(data,
   
   theme_classic(base_size = 14) +
   labs(x = "log10(ITS mm)",
-       y = "log10 Metabolic rate (mL/h)") +
+       y = "log10 Metabolic rate (ml/h)") +
   
   # filled circle + triangle
   scale_shape_manual(values = c(21, 24))
